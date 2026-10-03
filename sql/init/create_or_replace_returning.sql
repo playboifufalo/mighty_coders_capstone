@@ -27,10 +27,28 @@ INSERT INTO team_members (name, matriculation_number, age) VALUES
 
 SELECT * FROM team_members;
 
--- ------------------------------------------------------------
+-- CREATE OR REPLACE also works on VIEW and PROCEDURE
+-- Same idempotent benefit applies.
+
+CREATE OR REPLACE VIEW active_members AS
+SELECT id, name, age
+FROM team_members
+WHERE age < 30;
+
+SELECT * FROM active_members;
+
+-- Re-running this is safe and idempotent, unlike plain CREATE VIEW,
+
+
+CREATE OR REPLACE VIEW active_members AS
+SELECT id, name, age
+FROM team_members
+WHERE age < 25;
+
+SELECT * FROM active_members;
+
 -- Limit: CREATE OR REPLACE cannot replace a table that is
 -- referenced by a foreign key constraint from another table.
--- ------------------------------------------------------------
 
 CREATE OR REPLACE TABLE projects (
     id           INT AUTO_INCREMENT PRIMARY KEY,
@@ -62,13 +80,14 @@ SELECT * FROM assignments;
 --     name VARCHAR(100)
 -- );
 --
-
-
+-- Actual error observed:
+-- ERROR 1451 (23000): Cannot delete or update a parent row: a
+-- foreign key constraint fails
 
 
 -- Feature: RETURNING
 
--- INSERT, UPDATE, and DELETE hand back the rows they touched,
+-- INSERT and DELETE hand back the rows they touched,
 -- removing the need for a separate SELECT round trip.
 
 -- OLD WAY: insert, then a second round trip for the new row
@@ -83,20 +102,38 @@ INSERT INTO team_members (name, matriculation_number, age)
 VALUES ('Anna2', '30009998', 23)
 RETURNING id, name, age;
 
--- Limit: UPDATE ... RETURNING requires MariaDB 13.0+
+-- ------------------------------------------------------------
+-- RETURNING can compute expressions on the returned row
+-- RETURNING * returns every column without naming them.
+-- ------------------------------------------------------------
 
+INSERT INTO team_members (name, matriculation_number, age)
+VALUES ('Anna3', '30009997', 23)
+RETURNING id, name, age, age + 1 AS age_next_year;
+
+INSERT INTO team_members (name, matriculation_number, age)
+VALUES ('Anna4', '30009996', 23)
+RETURNING *;
+
+-- ------------------------------------------------------------
+-- Limit: UPDATE ... RETURNING is NOT supported on this MariaDB
+-- version. It was only added in MariaDB 13.0; this project runs
+-- MariaDB 11.4, where RETURNING supports only INSERT and DELETE.
+--
 -- UPDATE team_members
 -- SET age = age + 1
 -- WHERE matriculation_number IN ('30009999', '30009998')
 -- RETURNING id, name, age;
+--
+-- Actual error observed:
+-- ERROR 1064 (42000): You have an error in your SQL syntax; check
+-- the manual that corresponds to your MariaDB server version for
+-- the right syntax to use near 'RETURNING id, name, age' at line 4
+-- ------------------------------------------------------------
 
--- RETURNING also works on DELETE
+-- RETURNING also works on DELETE — clean up all demo rows
 DELETE FROM team_members
-WHERE matriculation_number IN ('30009999', '30009998')
+WHERE matriculation_number IN ('30009999', '30009998', '30009997', '30009996')
 RETURNING id, name;
 
 SELECT * FROM team_members;
-
-
-
-
