@@ -96,3 +96,7 @@ WHERE matriculation_number IN ('30009999', '30009998')
 RETURNING id, name;
 
 SELECT * FROM team_members;
+
+
+
+
