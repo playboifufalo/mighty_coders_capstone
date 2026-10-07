@@ -33,9 +33,9 @@ SELECT * FROM sequence_auto_b;
 
 
 
--- ============================================================
+
 -- NEW WAY: CREATE SEQUENCE
--- ============================================================
+
 -- A sequence is a standalone object, independent of any table.
 -- One sequence can be shared across multiple tables.
 -- Producing globally unique, continuously incrementing values.
