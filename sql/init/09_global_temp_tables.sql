@@ -23,8 +23,7 @@
 --   ) ON COMMIT [DELETE | PRESERVE] ROWS;
 --
 -- Run separately (not as part of this script) to reproduce the actual
--- failure, confirming the feature is genuinely unavailable rather than
--- a mistake on our side:
+-- failure, confirming the feature is genuinely unavailable rather than a mistake:
 --
 -- CREATE GLOBAL TEMPORARY TABLE scratch_new (
 --     id   INT AUTO_INCREMENT PRIMARY KEY,
@@ -48,8 +47,8 @@ USE mighty_coders;
 -- What IS available today: a regular TEMPORARY TABLE, which is private
 -- to the session that creates it -- both its structure AND its data
 -- disappear when that session ends, and every session that needs it
--- has to CREATE it again itself. This is the closest working substitute
--- until MDEV-35915 ships.
+-- has to CREATE it again itself.
+
 
 CREATE TEMPORARY TABLE scratch_old (
     id   INT AUTO_INCREMENT PRIMARY KEY,
