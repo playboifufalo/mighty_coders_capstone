@@ -1,51 +1,71 @@
 """
 before.py — set operations via JOIN and subqueries
 
-Finding common/unique students without INTERSECT/EXCEPT requires
+Finding common/unique destinations without INTERSECT/EXCEPT requires
 JOIN constructs that obscure the intent.
+Source data: OpenFlights routes dataset (routes.dat).
 """
 
+import csv
+import io
 import sys
 import os
+import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from db import get_connection
 
-PYTHON_STUDENTS = ["alice", "bob", "carol", "dave"]
-SQL_STUDENTS    = ["bob", "carol", "eve", "frank"]
+ROUTES_URL = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/routes.dat"
+SOURCE_A = "AMS"  #Amsterdam Schiphol
+SOURCE_B = "FRA"  #Frankfurt Airport
+LIMIT    = 50     #destinations per source airport
 
 
-def setup(cur):
-    cur.execute("DROP TABLE IF EXISTS demo_enrolled_python")
-    cur.execute("DROP TABLE IF EXISTS demo_enrolled_sql")
-    cur.execute("CREATE TABLE demo_enrolled_python (student VARCHAR(100) NOT NULL)")
-    cur.execute("CREATE TABLE demo_enrolled_sql    (student VARCHAR(100) NOT NULL)")
-    for s in PYTHON_STUDENTS:
-        cur.execute("INSERT INTO demo_enrolled_python VALUES (%s)", (s,))
-    for s in SQL_STUDENTS:
-        cur.execute("INSERT INTO demo_enrolled_sql VALUES (%s)", (s,))
+def fetch_routes():
+    #download routes.dat once, collect destinations for both airports
+    result = {SOURCE_A: [], SOURCE_B: []}
+    seen   = {SOURCE_A: set(), SOURCE_B: set()}
+    with urllib.request.urlopen(ROUTES_URL) as response:
+        for row in csv.reader(io.TextIOWrapper(response, encoding="utf-8")):
+            src, dst = row[2], row[4]
+            if src in result and dst != r"\N" and dst not in seen[src] and len(result[src]) < LIMIT:
+                seen[src].add(dst)
+                result[src].append(dst)
+    return result[SOURCE_A], result[SOURCE_B]
+
+
+def setup(cur, dests_a, dests_b):
+    cur.execute("DROP TABLE IF EXISTS demo_routes_ams")
+    cur.execute("DROP TABLE IF EXISTS demo_routes_fra")
+    cur.execute("CREATE TABLE demo_routes_ams (destination CHAR(3) NOT NULL)")
+    cur.execute("CREATE TABLE demo_routes_fra (destination CHAR(3) NOT NULL)")
+    for d in dests_a:
+        cur.execute("INSERT INTO demo_routes_ams VALUES (%s)", (d,))
+    for d in dests_b:
+        cur.execute("INSERT INTO demo_routes_fra VALUES (%s)", (d,))
 
 
 def main():
+    dests_a, dests_b = fetch_routes()
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            setup(cur)
+            setup(cur, dests_a, dests_b)
             cur.execute(  #intersection via INNER JOIN
-                "SELECT p.student FROM demo_enrolled_python p"
-                " INNER JOIN demo_enrolled_sql s ON p.student = s.student"
-                " ORDER BY p.student"
+                "SELECT a.destination FROM demo_routes_ams a"
+                " INNER JOIN demo_routes_fra f ON a.destination = f.destination"
+                " ORDER BY a.destination"
             )
             both = [r[0] for r in cur.fetchall()]
             cur.execute(  #difference via LEFT JOIN + IS NULL
-                "SELECT p.student FROM demo_enrolled_python p"
-                " LEFT JOIN demo_enrolled_sql s ON p.student = s.student"
-                " WHERE s.student IS NULL ORDER BY p.student"
+                "SELECT a.destination FROM demo_routes_ams a"
+                " LEFT JOIN demo_routes_fra f ON a.destination = f.destination"
+                " WHERE f.destination IS NULL ORDER BY a.destination"
             )
-            only_python = [r[0] for r in cur.fetchall()]
-        print("[before.py] In both courses (INNER JOIN):", both)
-        print("[before.py] Python only  (LEFT JOIN+NULL):", only_python)
+            only_ams = [r[0] for r in cur.fetchall()]
+        print(f"[before.py] Reachable from both {SOURCE_A} and {SOURCE_B} (INNER JOIN):", both)
+        print(f"[before.py] Only from {SOURCE_A} (LEFT JOIN+NULL):", only_ams)
     finally:
         conn.close()
 
