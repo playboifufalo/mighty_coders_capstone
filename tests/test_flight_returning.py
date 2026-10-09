@@ -106,3 +106,27 @@ class TestDeleteReturning:
             cur.execute("SELECT * FROM airlines WHERE id = %s", (800007,))
             remaining = cur.fetchone()
         assert remaining is None
+
+
+class TestReturningLimits:
+    def test_second_insert_returning_does_not_include_first_row(self, conn):
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO airlines (id, name, country) VALUES (%s, %s, %s)"
+                " RETURNING id, name",
+                (800008, "First Air", "TestLand"),
+            )
+            first_rows = cur.fetchall()
+
+            cur.execute(
+                "INSERT INTO airlines (id, name, country) VALUES (%s, %s, %s)"
+                " RETURNING id, name",
+                (800009, "Second Air", "TestLand"),
+            )
+            second_rows = cur.fetchall()
+
+        assert list(first_rows) == [(800008, "First Air")]
+        # RETURNING covers only its own statement: the second insert
+        # returns just its own row, not the first one.
+        assert list(second_rows) == [(800009, "Second Air")]
+        assert all(row[0] != 800008 for row in second_rows)
