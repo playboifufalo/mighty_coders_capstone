@@ -138,6 +138,17 @@ INSERT INTO airlines (id, name, country)
 VALUES (700002, 'Adwa', 'Tigray')
 RETURNING id, name, country;
 
+-- RETURNING: limitations
+
+-- RETURNING only returns the rows touched by the statement it is
+-- attached to. A second INSERT ... RETURNING does not return the
+-- rows of the first one. To get earlier rows you need a SELECT, or
+-- you insert all rows in a single statement:
+--
+-- INSERT INTO airlines (id, name, country)
+-- VALUES (700003, 'A', 'Tigray'), (700004, 'B', 'Tigray')
+-- RETURNING id, name;      -- returns both rows
+
 -- DELETE ... RETURNING also works
 
 DELETE FROM airlines
